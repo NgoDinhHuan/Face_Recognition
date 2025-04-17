@@ -1,43 +1,49 @@
 # enroll.py
 import os
+import sys
 import numpy as np
 from PIL import Image
-import torch
+import onnxruntime as ort
 from torchvision import transforms
-import torch.nn.functional as F
-import sys
 
 sys.path.insert(0, './face_alignment')
 from align import get_aligned_face
 
-# Load model từ torch.hub
-model = torch.hub.load('otroshi/edgeface', 'edgeface_s_gamma_05', source='github', pretrained=True)
-model.eval()
+# LẤY THAM SỐ MODEL TYPE
+MODEL_TYPE = sys.argv[1] if len(sys.argv) > 1 else "fp32"
+MODEL_PATH = f"models/edgeface_{MODEL_TYPE}.onnx"
 device = "cpu"
-model = model.to(device)
 
 IMAGE_DIR = "datasets/images"
 EMB_DIR = "datasets/embeddings"
 DEBUG_ALIGNED_DIR = "debug_aligned/enroll_img"
 
+# LOAD ONNX MODEL
+print(f" Sử dụng mô hình ONNX: {MODEL_PATH}")
+session = ort.InferenceSession(MODEL_PATH, providers=['CPUExecutionProvider'])
+input_name = session.get_inputs()[0].name
+
+# CHUẨN HOÁ ẢNH
 transform = transforms.Compose([
     transforms.ToTensor(),
-    transforms.Normalize([0.5]*3, [0.5]*3)
+    transforms.Normalize([0.5] * 3, [0.5] * 3)
 ])
 
 def get_embedding(img_path, aligned_path=None):
     aligned_img = get_aligned_face(img_path)
     if aligned_img is None:
-        print(f" Không tìm thấy khuôn mặt : {img_path}")
+        print(f" Không tìm thấy khuôn mặt: {img_path}")
         return None
+
     if aligned_path:
         os.makedirs(os.path.dirname(aligned_path), exist_ok=True)
         aligned_img.save(aligned_path)
-    tensor = transform(aligned_img).unsqueeze(0).to(device)
-    with torch.no_grad():
-        emb = model(tensor)
-        emb = F.normalize(emb)
-    return emb.squeeze(0).cpu().numpy()
+
+    tensor = transform(aligned_img).unsqueeze(0).numpy()  # CHUYỂN THÀNH numpy
+    outputs = session.run(None, {input_name: tensor})
+    emb = outputs[0][0]
+    emb = emb / np.linalg.norm(emb)  # normalize
+    return emb
 
 def enroll_individual(person, img_path):
     img_name = os.path.splitext(os.path.basename(img_path))[0]
@@ -54,7 +60,7 @@ def enroll_individual(person, img_path):
     emb = get_embedding(img_path, aligned_debug_path)
     if emb is not None:
         np.save(emb_path, emb)
-        print(f" Saved: {person}/{img_name}.npy")
+        print(f" Đã lưu: {person}/{img_name}.npy")
 
 def enroll_all():
     os.makedirs(EMB_DIR, exist_ok=True)
