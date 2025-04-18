@@ -1,111 +1,103 @@
 
+# Face Recognition with EdgeFace + ONNX
 
-# EdgeFace: Efficient Face Recognition Model for Edge Devices
+A real-time face recognition system using the `EdgeFace` model converted to `ONNX`, supporting formats `fp32`, `fp16`, `int8`, and `int4`. It defaults to using **GPU**, falling back to **CPU** if GPU is unavailable.
 
-[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/edgeface-efficient-face-recognition-model-for/lightweight-face-recognition-on-lfw)](https://paperswithcode.com/sota/lightweight-face-recognition-on-lfw?p=edgeface-efficient-face-recognition-model-for)
-[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/edgeface-efficient-face-recognition-model-for/lightweight-face-recognition-on-calfw)](https://paperswithcode.com/sota/lightweight-face-recognition-on-calfw?p=edgeface-efficient-face-recognition-model-for)
-[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/edgeface-efficient-face-recognition-model-for/lightweight-face-recognition-on-cplfw)](https://paperswithcode.com/sota/lightweight-face-recognition-on-cplfw?p=edgeface-efficient-face-recognition-model-for)
-[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/edgeface-efficient-face-recognition-model-for/lightweight-face-recognition-on-cfp-fp)](https://paperswithcode.com/sota/lightweight-face-recognition-on-cfp-fp?p=edgeface-efficient-face-recognition-model-for)
-[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/edgeface-efficient-face-recognition-model-for/lightweight-face-recognition-on-agedb-30)](https://paperswithcode.com/sota/lightweight-face-recognition-on-agedb-30?p=edgeface-efficient-face-recognition-model-for)	
-[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/edgeface-efficient-face-recognition-model-for/lightweight-face-recognition-on-ijb-b)](https://paperswithcode.com/sota/lightweight-face-recognition-on-ijb-b?p=edgeface-efficient-face-recognition-model-for)	
-[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/edgeface-efficient-face-recognition-model-for/lightweight-face-recognition-on-ijb-c)](https://paperswithcode.com/sota/lightweight-face-recognition-on-ijb-c?p=edgeface-efficient-face-recognition-model-for)	
+## 📁 Directory Structure
 
-[![arXiv](https://img.shields.io/badge/cs.CV-arXiv%3A2307.01838-009d81v2.svg)](https://arxiv.org/abs/2307.01838v2)
-
-
-This repository contain inference code and pretrained models to use [**EdgeFace: Efficient Face Recognition Model for Edge Devices**](https://ieeexplore.ieee.org/abstract/document/10388036/), 
-which is the **winning entry** in *the compact track of ["EFaR 2023: Efficient Face Recognition Competition"](https://arxiv.org/abs/2308.04168) organised at the IEEE International Joint Conference on Biometrics (IJCB) 2023*. For the complete source code of training and evaluation, please check the [official repository](https://gitlab.idiap.ch/bob/bob.paper.tbiom2023_edgeface).
-
-
-![EdgeFace](assets/edgeface.png)
-
-## Installation
-```sh
-$ pip install -r requirements.txt
+```
+.
+├── models/                  # Chứa các model .onnx (fp16, int8...)
+├── datasets/
+│   ├── images/             # Ảnh gốc để enroll
+│   ├── embeddings/         # Vector đã lưu
+│   └── test/               # Ảnh test
+├── debug_aligned/          # Lưu ảnh đã căn chỉnh
+├── face_alignment/         # Thư viện MTCNN + align
+├── config.py               # Cấu hình chung (model path, threshold...)
+├── enroll.py               # Lưu khuôn mặt vào hệ thống
+├── recognize.py            # Kiểm tra khuôn mặt từ ảnh tĩnh
+├── camera_recognition.py   # Nhận diện realtime từ webcam
+├── model_utils.py          # Hàm load ONNX, chuẩn hóa ảnh
+└── requirements.txt        # Thư viện cần cài
 ```
 
-## Inference
-The following code shows how to use the model for inference:
-```python
-import torch
-from torchvision import transforms
-from face_alignment import align
-from backbones import get_model
+## ⚙️ Installation
 
-# load model
-model_name="edgeface_s_gamma_05" # or edgeface_xs_gamma_06
-model=get_model(model_name)
-checkpoint_path=f'checkpoints/{arch}.pt'
-model.load_state_dict(torch.load(checkpoint_path, map_location='cpu')).eval()
+```bash
+git clone https://github.com/NgoDinhHuan/Face_Recognition.git
+cd Face_Recognition
 
-transform = transforms.Compose([
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]),
-            ])
-
-path = 'path_to_face_image'
-aligned = align.get_aligned_face(path) # align face
-transformed_input = transform(aligned) # preprocessing
-
-# extract embedding
-embedding = model(transformed_input)
+# Recommended to use virtualenv or conda
+pip install -r requirements.txt
 ```
 
+## 🧪 ONNX Models
 
+Available `.onnx` model files:
 
-## Pre-trained models
-- EdgeFace-s (gamma=0.5): available in [`checkpoints/edgeface_s_gamma_05.pt`](checkpoints/edgeface_s_gamma_05.pt)
-- EdgeFace-xs (gamma=0.6): available in [`checkpoints/edgeface_xs_gamma_06.pt`](checkpoints/edgeface_xs_gamma_06.pt)
+- `models/edgeface_fp32.onnx`
+- `models/edgeface_fp16.onnx` ✅ **(Default)**
+- `models/edgeface_int8.onnx`
+- `models/edgeface_int4.onnx` *(if available)*
 
-
-
-## Performance
-The performance of each model is reported in Table 2 of the [paper](https://arxiv.org/pdf/2307.01838v2.pdf):
-
-![performance](assets/benchmark.png)
-
-
-## :rocket: New! Using EdgeFace Models via `torch.hub`
-
-### Available Models on `torch.hub`
-
-- `edgeface_base`
-- `edgeface_s_gamma_05`
-- `edgeface_xs_q`
-- `edgeface_xs_gamma_06`
-- `edgeface_xxs`
-- `edgeface_xxs_q`
-
-**NOTE:** Models with `_q` are quantised and require less storage.
-
-### Loading EdgeFace Models with `torch.hub`
-
-You can load the models using `torch.hub` as follows:
+## ⚙️ Configuration in `config.py`
 
 ```python
-import torch
-model = torch.hub.load('otroshi/edgeface', 'edgeface_xs_gamma_06', source='github', pretrained=True)
-model.eval()
+# config.py
+MODEL_TYPE = "fp16"  # "fp32", "fp16", "int8", "int4"
+THRESHOLD = 0.5
+EMB_DIR = "datasets/embeddings"
+IMAGE_DIR = "datasets/images"
+DEBUG_ALIGNED_DIR = "debug_aligned"
 ```
 
-### Performance benchmarks of different variants of EdgeFace
+Just change `MODEL_TYPE` or `THRESHOLD` here without modifying individual files.
 
-| Model               | MPARAMS| MFLOPs |    LFW(%)    |    CALFW(%)  |   CPLFW(%)   |   CFP-FP(%)  |   AgeDB30(%) |
-|:--------------------|-------:|-------:|:-------------|:-------------|:-------------|:-------------|:-------------|
-| edgeface_base       |  18.23 |1398.83 | 99.83 ± 0.24 | 96.07 ± 1.03 | 93.75 ± 1.16 | 97.01 ± 0.94 | 97.60 ± 0.70 |
-| edgeface_s_gamma_05 |   3.65 | 306.12 | 99.78 ± 0.27 | 95.55 ± 1.05 | 92.48 ± 1.42 | 95.74 ± 1.09 | 97.03 ± 0.85 |
-| edgeface_xs_gamma_06|   1.77 | 154.00 | 99.73 ± 0.35 | 95.28 ± 1.37 | 91.58 ± 1.42 | 94.71 ± 1.07 | 96.08 ± 0.95 |
-| edgeface_xxs        |   1.24 |  94.72 | 99.57 ± 0.33 | 94.83 ± 0.98 | 90.27 ± 0.93 | 93.63 ± 0.99 | 94.92 ± 1.15 |
+## 📌 Enroll - Register Faces to the System
 
-## Reference
-If you use this repository, please cite the following paper, which is [published](https://ieeexplore.ieee.org/abstract/document/10388036/) in the IEEE Transactions on Biometrics, Behavior, and Identity Science (IEEE T-BIOM). The PDF version of the paper is available as [pre-print on arxiv](https://arxiv.org/pdf/2307.01838v2.pdf). The complete source code for reproducing all experiments in the paper (including training and evaluation) is also publicly available in the [official repository](https://gitlab.idiap.ch/bob/bob.paper.tbiom2023_edgeface).
-
-
-```bibtex
-@article{edgeface,
-  title={Edgeface: Efficient face recognition model for edge devices},
-  author={George, Anjith and Ecabert, Christophe and Shahreza, Hatef Otroshi and Kotwal, Ketan and Marcel, Sebastien},
-  journal={IEEE Transactions on Biometrics, Behavior, and Identity Science},
-  year={2024}
-}
+```bash
+python enroll.py
 ```
+
+- Images should be placed under `datasets/images/{person_name}/`
+- Embeddings will be saved to `datasets/embeddings/{person_name}/`
+
+## 🔍 Recognize - Identify from Static Image
+
+```bash
+python recognize.py
+```
+
+- The test image is `datasets/test/testok.png`
+- The result will print the best matched person
+
+## 🎥 Realtime from Webcam
+
+```bash
+python camera_recognition.py
+```
+
+Press `Q` to exit.
+
+##  Model Info
+
+Model used from [otroshi/edgeface](https://github.com/otroshi/edgeface) converted to ONNX. Suitable for deployment on edge devices (Jetson, Raspberry Pi, etc.) and API integration.
+
+## 📦 TODO
+
+- [x] Convert ONNX to multiple formats
+- [x] Auto-detect GPU if available
+- [x] Unify shared configuration
+- [ ] Integrate with FastAPI
+- [ ] Benchmark performance per model
+
+## ✨ Demo
+
+(Insert demo image here if available)
+
+## 🧑‍💻 Author
+
+**Ngô Đình Huân**  
+Project: `Face Recognition with EdgeFace + ONNX + Camera`  
+Email: `ngodinhhuan07@gmail.com`
