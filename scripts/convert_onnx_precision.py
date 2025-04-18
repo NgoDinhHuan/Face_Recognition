@@ -3,15 +3,13 @@ import onnx
 from onnxruntime.quantization import quantize_dynamic, QuantType
 from onnxruntime.transformers.float16 import convert_float_to_float16
 
-# Tạo thư mục lưu model nếu chưa tồn tại
-os.makedirs("models", exist_ok=True)
 
 # Đường dẫn model ONNX FP32 gốc
 fp32_path = "models/edgeface_fp32.onnx"
 fp16_path = "models/edgeface_fp16.onnx"
 int8_path = "models/edgeface_int8.onnx"
 
-# Bước 1: Chuyển sang FP16
+# Bước 1: Chuyển sang FP
 model_fp32 = onnx.load(fp32_path)
 model_fp16 = convert_float_to_float16(model_fp32)
 onnx.save(model_fp16, fp16_path)
