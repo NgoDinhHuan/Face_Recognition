@@ -1,33 +1,20 @@
+
 import os
 import sys
 import numpy as np
 from PIL import Image
 import onnxruntime as ort
 from torchvision import transforms
+from config import MODEL_PATH, IMAGE_DIR, EMB_DIR, DEBUG_ALIGNED_ENROLL, CHOSEN_PROVIDERS
+print(f"Đang sử dụng model: {MODEL_PATH}")
 
 sys.path.insert(0, './face_alignment')
 from align import get_aligned_face
 
-# LẤY THAM SỐ MODEL TYPE
-MODEL_TYPE = sys.argv[1] if len(sys.argv) > 1 else "fp32"
-MODEL_PATH = f"models/edgeface_{MODEL_TYPE}.onnx"
-
-IMAGE_DIR = "datasets/images"
-EMB_DIR = "datasets/embeddings"
-DEBUG_ALIGNED_DIR = "debug_aligned/enroll_img"
-
-# CHỌN PROVIDER GPU, FALLBACK SANG CPU
-available_providers = ort.get_available_providers()
-preferred_providers = ['CUDAExecutionProvider', 'CPUExecutionProvider']
-chosen_providers = [p for p in preferred_providers if p in available_providers]
-
-print(f"Sử dụng mô hình ONNX: {MODEL_PATH}")
-
-session = ort.InferenceSession(MODEL_PATH, providers=chosen_providers)
+session = ort.InferenceSession(MODEL_PATH, providers=CHOSEN_PROVIDERS)
 input_name = session.get_inputs()[0].name
 expected_dtype = session.get_inputs()[0].type
 
-# CHUẨN HOÁ ẢNH
 transform = transforms.Compose([
     transforms.ToTensor(),
     transforms.Normalize([0.5] * 3, [0.5] * 3)
@@ -44,11 +31,7 @@ def get_embedding(img_path, aligned_path=None):
         aligned_img.save(aligned_path)
 
     tensor = transform(aligned_img).unsqueeze(0).numpy()
-
-    if "float16" in expected_dtype.lower():
-        tensor = tensor.astype(np.float16)
-    else:
-        tensor = tensor.astype(np.float32)
+    tensor = tensor.astype(np.float16) if "float16" in expected_dtype.lower() else tensor.astype(np.float32)
 
     outputs = session.run(None, {input_name: tensor})
     emb = outputs[0][0]
@@ -60,7 +43,7 @@ def enroll_individual(person, img_path):
     save_dir = os.path.join(EMB_DIR, person)
     os.makedirs(save_dir, exist_ok=True)
 
-    aligned_debug_path = os.path.join(DEBUG_ALIGNED_DIR, person, f"{img_name}_aligned.jpg")
+    aligned_debug_path = os.path.join(DEBUG_ALIGNED_ENROLL, person, f"{img_name}_aligned.jpg")
     emb_path = os.path.join(save_dir, f"{img_name}.npy")
 
     emb = get_embedding(img_path, aligned_debug_path)
@@ -70,14 +53,11 @@ def enroll_individual(person, img_path):
 
 def enroll_all():
     os.makedirs(EMB_DIR, exist_ok=True)
-
     for person in os.listdir(IMAGE_DIR):
         person_dir = os.path.join(IMAGE_DIR, person)
         if not os.path.isdir(person_dir): continue
-
         for img_file in os.listdir(person_dir):
-            if not img_file.lower().endswith((".jpg", ".jpeg", ".png")):
-                continue
+            if not img_file.lower().endswith(('.jpg', '.jpeg', '.png')): continue
             img_path = os.path.join(person_dir, img_file)
             enroll_individual(person, img_path)
 
